@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件处理服务</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <style>
+        [v-cloak] { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { animation: spin 1s linear infinite; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+    <main id="app" v-cloak class="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
+        <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">文件处理服务</h1>
+
+        <section v-if="phase === 'idle' || phase === 'error'" class="space-y-4">
+            <button
+                type="button"
+                class="w-full border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors bg-white"
+                :class="isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'"
+                @click="openFilePicker"
+                @dragenter.prevent="isDragOver = true"
+                @dragover.prevent="isDragOver = true"
+                @dragleave.prevent="isDragOver = false"
+                @drop.prevent="handleDrop"
+            >
+                <svg class="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                <p class="text-gray-600">点击或拖拽文件到此处上传</p>
+                <p v-if="selectedFile" class="text-sm text-blue-600 mt-2 truncate">{{ selectedFile.name }}</p>
+            </button>
+
+            <input ref="fileInput" type="file" class="hidden" @change="handleFileChange">
+
+            <p v-if="errorMessage" class="text-sm text-red-600 text-center">{{ errorMessage }}</p>
+
+            <button
+                type="button"
+                class="w-full bg-blue-600 text-white rounded-lg px-4 py-3 font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700"
+                :disabled="!selectedFile"
+                @click="uploadFile"
+            >
+                开始处理
+            </button>
+        </section>
+
+        <section v-if="phase === 'uploading'" class="mt-4">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-sm text-gray-600 truncate max-w-[200px]">{{ selectedFileName }}</span>
+                <span class="text-sm text-blue-600">{{ progressLabel }}</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-blue-500 h-2 rounded-full transition-all" :style="{ width: progressLabel }"></div>
+            </div>
+        </section>
+
+        <section v-if="phase === 'processing'" class="mt-6 text-center">
+            <svg class="spinner mx-auto h-10 w-10 text-blue-500 mb-3" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            <p class="text-gray-700 font-medium">正在处理文件...</p>
+            <p class="text-sm text-gray-400 mt-1">请耐心等待，处理可能需要几分钟</p>
+        </section>
+
+        <section v-if="phase === 'done'" class="mt-6 text-center">
+            <div class="mx-auto h-12 w-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
+                <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <p class="text-gray-700 font-medium mb-4">处理完成！</p>
+            <a :href="downloadUrl" class="inline-block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">下载结果</a>
+            <button type="button" class="block mx-auto mt-3 text-sm text-gray-500 hover:text-gray-700" @click="reset">处理新文件</button>
+        </section>
+    </main>
+
+    <script>
+        const { createApp, computed, onBeforeUnmount, ref } = Vue;
+
+        createApp({
+            setup() {
+                const fileInput = ref(null);
+                const selectedFile = ref(null);
+                const isDragOver = ref(false);
+                const phase = ref('idle');
+                const progress = ref(0);
+                const taskId = ref('');
+                const errorMessage = ref('');
+                let pollTimer = null;
+
+                const selectedFileName = computed(() => selectedFile.value ? selectedFile.value.name : '');
+                const progressLabel = computed(() => `${progress.value}%`);
+                const downloadUrl = computed(() => taskId.value ? `/api/download/${taskId.value}` : '#');
+
+                function clearPolling() {
+                    if (pollTimer) {
+                        clearInterval(pollTimer);
+                        pollTimer = null;
+                    }
+                }
+
+                function openFilePicker() {
+                    fileInput.value?.click();
+                }
+
+                function setSelectedFile(file) {
+                    if (!file) return;
+                    selectedFile.value = file;
+                    errorMessage.value = '';
+                    progress.value = 0;
+                    phase.value = 'idle';
+                }
+
+                function handleFileChange(event) {
+                    setSelectedFile(event.target.files?.[0]);
+                }
+
+                function handleDrop(event) {
+                    isDragOver.value = false;
+                    setSelectedFile(event.dataTransfer.files?.[0]);
+                }
+
+                function uploadFile() {
+                    if (!selectedFile.value) {
+                        errorMessage.value = '请先选择文件';
+                        return;
+                    }
+
+                    clearPolling();
+                    errorMessage.value = '';
+                    phase.value = 'uploading';
+                    progress.value = 0;
+
+                    const formData = new FormData();
+                    formData.append('file', selectedFile.value);
+
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/api/upload', true);
+
+                    xhr.upload.onprogress = (event) => {
+                        if (event.lengthComputable) {
+                            progress.value = Math.round((event.loaded / event.total) * 100);
+                        }
+                    };
+
+                    xhr.onload = () => {
+                        if (xhr.status === 200) {
+                            const response = JSON.parse(xhr.responseText);
+                            taskId.value = response.task_id;
+                            phase.value = 'processing';
+                            startPolling(response.task_id);
+                            return;
+                        }
+
+                        showError('上传失败，请重试');
+                    };
+
+                    xhr.onerror = () => showError('网络错误，请重试');
+                    xhr.send(formData);
+                }
+
+                function startPolling(currentTaskId) {
+                    clearPolling();
+                    pollTimer = setInterval(async () => {
+                        try {
+                            const response = await fetch(`/api/status/${currentTaskId}`);
+                            const data = await response.json();
+
+                            if (data.status === 'done') {
+                                clearPolling();
+                                phase.value = 'done';
+                            } else if (data.status === 'error') {
+                                showError(data.error || '处理失败，请重试');
+                            }
+                        } catch (error) {
+                            // Keep polling on transient network errors.
+                        }
+                    }, 3000);
+                }
+
+                function showError(message) {
+                    clearPolling();
+                    errorMessage.value = message;
+                    phase.value = 'error';
+                }
+
+                function reset() {
+                    clearPolling();
+                    selectedFile.value = null;
+                    taskId.value = '';
+                    errorMessage.value = '';
+                    progress.value = 0;
+                    phase.value = 'idle';
+                    if (fileInput.value) {
+                        fileInput.value.value = '';
+                    }
+                }
+
+                onBeforeUnmount(clearPolling);
+                window.addEventListener('beforeunload', clearPolling);
+
+                return {
+                    downloadUrl,
+                    errorMessage,
+                    fileInput,
+                    handleDrop,
+                    handleFileChange,
+                    isDragOver,
+                    openFilePicker,
+                    phase,
+                    progressLabel,
+                    reset,
+                    selectedFile,
+                    selectedFileName,
+                    uploadFile,
+                };
+            },
+        }).mount('#app');
+    </script>
+</body>
+</html>

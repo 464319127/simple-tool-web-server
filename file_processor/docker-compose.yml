@@ -1,0 +1,21 @@
+services:
+  app:
+    build: .
+    volumes:
+      - uploads:/data/uploads
+      - results:/data/results
+    expose:
+      - "8000"
+
+  nginx:
+    image: docker.1ms.run/library/nginx:alpine-perl
+    ports:
+      - "8999:8999"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+
+volumes:
+  uploads:
+  results:
