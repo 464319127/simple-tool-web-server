@@ -36,12 +36,32 @@
 
             <input ref="fileInput" type="file" accept="application/pdf,.pdf" class="hidden" @change="handleFileChange">
 
+            <label class="block text-sm font-medium text-gray-700">
+                ONEAPI Key
+                <input
+                    v-model.trim="apiKey"
+                    type="password"
+                    autocomplete="off"
+                    class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    placeholder="请输入 ONEAPI Key"
+                >
+            </label>
+
+            <label class="block text-sm font-medium text-gray-700">
+                DUCC Model
+                <input
+                    v-model.trim="duccModel"
+                    type="text"
+                    class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+            </label>
+
             <p v-if="errorMessage" class="text-sm text-red-600 text-center">{{ errorMessage }}</p>
 
             <button
                 type="button"
                 class="w-full bg-blue-600 text-white rounded-lg px-4 py-3 font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700"
-                :disabled="!selectedFile"
+                :disabled="!selectedFile || !apiKey"
                 @click="uploadFile"
             >
                 开始翻译
@@ -109,6 +129,8 @@
             setup() {
                 const fileInput = ref(null);
                 const selectedFile = ref(null);
+                const apiKey = ref('');
+                const duccModel = ref('gpt-5.5');
                 const isDragOver = ref(false);
                 const phase = ref('idle');
                 const progress = ref(0);
@@ -170,6 +192,13 @@
                         errorMessage.value = '请先选择文件';
                         return;
                     }
+                    if (!apiKey.value) {
+                        errorMessage.value = '请输入 ONEAPI Key';
+                        return;
+                    }
+                    if (!duccModel.value) {
+                        duccModel.value = 'gpt-5.5';
+                    }
 
                     clearPolling();
                     errorMessage.value = '';
@@ -181,6 +210,8 @@
 
                     const formData = new FormData();
                     formData.append('file', selectedFile.value);
+                    formData.append('api_key', apiKey.value);
+                    formData.append('model', duccModel.value);
 
                     const xhr = new XMLHttpRequest();
                     xhr.open('POST', '/api/upload', true);
@@ -271,8 +302,10 @@
                 window.addEventListener('beforeunload', clearPolling);
 
                 return {
+                    apiKey,
                     cancelTask,
                     debugCommands,
+                    duccModel,
                     dualDownloadUrl,
                     errorMessage,
                     fileInput,

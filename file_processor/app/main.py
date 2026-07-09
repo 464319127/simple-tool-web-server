@@ -2,7 +2,7 @@ import asyncio
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 
 from .tasks import process_file
@@ -25,7 +25,16 @@ async def index():
 
 
 @app.post("/api/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(
+    file: UploadFile = File(...),
+    api_key: str = Form(...),
+    model: str = Form("gpt-5.5"),
+):
+    api_key = api_key.strip()
+    model = model.strip() or "gpt-5.5"
+    if not api_key:
+        raise HTTPException(status_code=400, detail="DUCC API Key is required")
+
     ext = Path(file.filename or "").suffix.lower()
     if ext != ".pdf":
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
@@ -52,22 +61,31 @@ async def upload_file(file: UploadFile = File(...)):
         "log_path": str(log_path),
         "progress": 0,
         "message": "等待翻译开始",
+        "model": model,
     }
 
-    runner = asyncio.create_task(_run_task(task_id, str(input_path), str(output_paths["mono"]), str(output_paths["dual"]), str(log_path)))
+    runner = asyncio.create_task(_run_task(task_id, str(input_path), str(output_paths["mono"]), str(output_paths["dual"]), str(log_path), api_key, model))
     tasks_store[task_id]["runner"] = runner
 
     return {"task_id": task_id, "status": "processing"}
 
 
-async def _run_task(task_id: str, input_path: str, mono_output_path: str, dual_output_path: str, log_path: str):
+async def _run_task(
+    task_id: str,
+    input_path: str,
+    mono_output_path: str,
+    dual_output_path: str,
+    log_path: str,
+    api_key: str,
+    model: str,
+):
     async def update_progress(progress: int, message: str):
         task = tasks_store[task_id]
         task["progress"] = progress
         task["message"] = message
 
     try:
-        await process_file(input_path, mono_output_path, dual_output_path, log_path, update_progress)
+        await process_file(input_path, mono_output_path, dual_output_path, log_path, api_key, model, update_progress)
         tasks_store[task_id]["status"] = "done"
         tasks_store[task_id]["progress"] = 100
     except asyncio.CancelledError:

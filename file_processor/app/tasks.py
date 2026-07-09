@@ -16,6 +16,8 @@ async def process_file(
     mono_output_path: str,
     dual_output_path: str,
     log_path: str,
+    ducc_api_key: str,
+    ducc_model: str,
     progress_callback: ProgressCallback | None = None,
 ):
     """
@@ -26,6 +28,8 @@ async def process_file(
         mono_output_path: 单语翻译结果的输出路径
         dual_output_path: 双语翻译结果的输出路径
         log_path: 翻译日志的输出路径
+        ducc_api_key: 本次翻译使用的 DUCC API Key
+        ducc_model: 本次翻译使用的 DUCC 模型
         progress_callback: 翻译进度更新回调
     """
     input_file = Path(input_path)
@@ -64,10 +68,15 @@ async def process_file(
         threads,
     ]
 
+    child_env = os.environ.copy()
+    child_env["DUCC_API_KEY"] = ducc_api_key
+    child_env["DUCC_MODEL"] = ducc_model
+
     process = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        env=child_env,
         start_new_session=True,
     )
 
