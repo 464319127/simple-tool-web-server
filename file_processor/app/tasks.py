@@ -46,6 +46,35 @@ async def process_file(
     threads = os.getenv("PDF2ZH_THREADS", "10")
     timeout = int(os.getenv("PDF2ZH_TIMEOUT_SECONDS", "3600"))
 
+    wrapper = """
+import os
+from pdf2zh.kernel.legacy import LegacyKernel
+from pdf2zh.kernel.protocol import TranslateRequest
+
+
+INPUT_FILE = os.environ["PDF2ZH_INPUT_FILE"]
+OUTPUT_DIR = os.environ["PDF2ZH_OUTPUT_DIR"]
+LANG_IN = os.environ["PDF2ZH_LANG_IN"]
+LANG_OUT = os.environ["PDF2ZH_LANG_OUT"]
+THREADS = int(os.environ["PDF2ZH_THREADS"])
+
+
+def progress_bar(t):
+    print(f"Translating {t.n} / {t.total} pages", flush=True)
+
+
+request = TranslateRequest(
+    files=[INPUT_FILE],
+    output=OUTPUT_DIR,
+    lang_in=LANG_IN,
+    lang_out=LANG_OUT,
+    service="ducc",
+    thread=THREADS,
+    envs={},
+)
+LegacyKernel().translate(request, callback=progress_bar)
+"""
+
     cmd = [
         "python3",
         "-m",
@@ -54,23 +83,20 @@ async def process_file(
         project_dir,
         "run",
         "--no-sync",
-        "pdf2zh",
-        str(input_file),
-        "-s",
-        "ducc",
-        "-o",
-        str(work_dir),
-        "-li",
-        lang_in,
-        "-lo",
-        lang_out,
-        "-t",
-        threads,
+        "python",
+        "-u",
+        "-c",
+        wrapper,
     ]
 
     child_env = os.environ.copy()
     child_env["DUCC_API_KEY"] = ducc_api_key
     child_env["DUCC_MODEL"] = ducc_model
+    child_env["PDF2ZH_INPUT_FILE"] = str(input_file)
+    child_env["PDF2ZH_OUTPUT_DIR"] = str(work_dir)
+    child_env["PDF2ZH_LANG_IN"] = lang_in
+    child_env["PDF2ZH_LANG_OUT"] = lang_out
+    child_env["PDF2ZH_THREADS"] = threads
 
     process = await asyncio.create_subprocess_exec(
         *cmd,
