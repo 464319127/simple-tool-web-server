@@ -54,7 +54,8 @@ async def upload_file(file: UploadFile = File(...)):
         "message": "等待翻译开始",
     }
 
-    asyncio.create_task(_run_task(task_id, str(input_path), str(output_paths["mono"]), str(output_paths["dual"]), str(log_path)))
+    runner = asyncio.create_task(_run_task(task_id, str(input_path), str(output_paths["mono"]), str(output_paths["dual"]), str(log_path)))
+    tasks_store[task_id]["runner"] = runner
 
     return {"task_id": task_id, "status": "processing"}
 
@@ -69,10 +70,39 @@ async def _run_task(task_id: str, input_path: str, mono_output_path: str, dual_o
         await process_file(input_path, mono_output_path, dual_output_path, log_path, update_progress)
         tasks_store[task_id]["status"] = "done"
         tasks_store[task_id]["progress"] = 100
+    except asyncio.CancelledError:
+        tasks_store[task_id]["status"] = "cancelled"
+        tasks_store[task_id]["message"] = "任务已终止"
+        raise
     except Exception as e:
         tasks_store[task_id]["status"] = "error"
         tasks_store[task_id]["error"] = str(e)
         tasks_store[task_id]["message"] = str(e)
+    finally:
+        tasks_store[task_id].pop("runner", None)
+
+
+@app.post("/api/cancel/{task_id}")
+async def cancel_task(task_id: str):
+    if task_id not in tasks_store:
+        return {"status": "not_found"}
+
+    task = tasks_store[task_id]
+    if task["status"] != "processing":
+        return {"status": task["status"]}
+
+    runner = task.get("runner")
+    if runner:
+        runner.cancel()
+    task["status"] = "cancelling"
+    task["message"] = "正在终止任务"
+
+    log_path = task.get("log_path")
+    if log_path:
+        with open(log_path, "a", encoding="utf-8") as log:
+            log.write("[app] cancellation requested\n")
+
+    return {"status": "cancelling"}
 
 
 @app.get("/api/status/{task_id}")
