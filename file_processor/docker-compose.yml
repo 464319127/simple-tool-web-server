@@ -1,6 +1,21 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-http://agent.baidu.com:8891}
+        HTTPS_PROXY: ${HTTPS_PROXY:-http://agent.baidu.com:8891}
+        NO_PROXY: ${NO_PROXY:-pip.baidu.com,oneapi-comate.baidu-int.com}
+    environment:
+      DUCC_BASE_URL: ${DUCC_BASE_URL:-https://oneapi-comate.baidu-int.com/v1/messages}
+      DUCC_API_KEY: ${DUCC_API_KEY:?DUCC_API_KEY is required}
+      DUCC_MODEL: ${DUCC_MODEL:-gpt-5.5}
+      PDF2ZH_LANG_IN: ${PDF2ZH_LANG_IN:-en}
+      PDF2ZH_LANG_OUT: ${PDF2ZH_LANG_OUT:-zh}
+      PDF2ZH_THREADS: ${PDF2ZH_THREADS:-10}
+      PDF2ZH_TIMEOUT_SECONDS: ${PDF2ZH_TIMEOUT_SECONDS:-3600}
+    security_opt:
+      - seccomp=unconfined
     volumes:
       - uploads:/data/uploads
       - results:/data/results
