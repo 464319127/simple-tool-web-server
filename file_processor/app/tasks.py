@@ -2,6 +2,7 @@ import asyncio
 import os
 import re
 import shutil
+import signal
 from pathlib import Path
 from typing import Awaitable, Callable
 
@@ -67,6 +68,7 @@ async def process_file(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        start_new_session=True,
     )
 
     log_tail: list[str] = []
@@ -97,6 +99,22 @@ async def process_file(
     if progress_callback:
         await progress_callback(1, "启动翻译任务")
 
+    async def terminate_process_group():
+        if process.returncode is not None:
+            return
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            return
+        try:
+            await asyncio.wait_for(process.wait(), timeout=5)
+        except asyncio.TimeoutError:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                return
+            await process.wait()
+
     try:
         await asyncio.wait_for(
             asyncio.gather(
@@ -106,9 +124,13 @@ async def process_file(
             ),
             timeout=timeout,
         )
+    except asyncio.CancelledError:
+        await terminate_process_group()
+        with open(log_file, "a", encoding="utf-8") as log:
+            log.write("[app] translation cancelled\n")
+        raise
     except asyncio.TimeoutError as exc:
-        process.kill()
-        await process.wait()
+        await terminate_process_group()
         raise RuntimeError(f"PDF translation timed out after {timeout} seconds") from exc
 
     if process.returncode != 0:
