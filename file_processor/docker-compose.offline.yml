@@ -1,7 +1,6 @@
 services:
   app:
-    build:
-      context: .
+    image: file_processor-app:latest
     environment:
       DUCC_BASE_URL: ${DUCC_BASE_URL:-https://oneapi-comate.baidu-int.com/v1/messages}
       PDF2ZH_LANG_IN: ${PDF2ZH_LANG_IN:-en}
@@ -17,7 +16,7 @@ services:
       - "8000"
 
   nginx:
-    image: docker.1ms.run/library/nginx:alpine-perl
+    image: file-processor-nginx:alpine-perl
     ports:
       - "8999:8999"
     volumes:

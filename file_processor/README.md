@@ -35,15 +35,14 @@ docker pull docker.1ms.run/library/nginx:alpine-perl
 
 ### 2. 配置 DUCC 翻译参数
 
-服务会在 app 镜像内安装 PDFMathTranslate/pdf2zh。运行前需要提供 DUCC 密钥：
-
-```bash
-export DUCC_API_KEY="sk-xxxxxxx"
-export DUCC_BASE_URL="https://oneapi-comate.baidu-int.com/v1/messages"
-export DUCC_MODEL="gpt-5.5"
-```
+服务会在 app 镜像内安装 PDFMathTranslate/pdf2zh。DUCC API Key 和模型名称由用户在页面上传时填写，模型默认值为 `gpt-5.5`。
 
 可选配置：
+
+```bash
+export DUCC_BASE_URL="https://oneapi-comate.baidu-int.com/v1/messages"
+```
+
 
 ```bash
 export PDF2ZH_LANG_IN="en"
@@ -75,6 +74,29 @@ http://<服务器IP>:8999
 | 文件大小限制 | nginx/nginx.conf | 500MB | `client_max_body_size` |
 | 代理超时 | nginx/nginx.conf | 600s | 长任务处理时间上限 |
 | pip 源 | Dockerfile | pip.baidu.com | 百度内网 pip 源 |
+
+## 离线部署
+
+在可构建机器上准备镜像包：
+
+```bash
+cd file_processor
+
+docker build -t file_processor-app:latest .
+docker pull docker.1ms.run/library/nginx:alpine-perl
+docker tag docker.1ms.run/library/nginx:alpine-perl file-processor-nginx:alpine-perl
+
+docker save -o file-processor-images.tar \
+  file_processor-app:latest \
+  file-processor-nginx:alpine-perl
+```
+
+将 `file-processor-images.tar`、`docker-compose.offline.yml` 和 `nginx/nginx.conf` 拷贝到目标服务器后执行：
+
+```bash
+docker load -i file-processor-images.tar
+docker compose -f docker-compose.offline.yml up -d
+```
 
 ## 常用命令
 
