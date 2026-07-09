@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文件处理服务</title>
+    <title>PDF 翻译服务</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <style>
@@ -14,7 +14,7 @@
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
     <main id="app" v-cloak class="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
-        <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">文件处理服务</h1>
+        <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">PDF 翻译服务</h1>
 
         <section v-if="phase === 'idle' || phase === 'error'" class="space-y-4">
             <button
@@ -30,11 +30,11 @@
                 <svg class="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                 </svg>
-                <p class="text-gray-600">点击或拖拽文件到此处上传</p>
+                <p class="text-gray-600">点击或拖拽 PDF 文件到此处上传</p>
                 <p v-if="selectedFile" class="text-sm text-blue-600 mt-2 truncate">{{ selectedFile.name }}</p>
             </button>
 
-            <input ref="fileInput" type="file" class="hidden" @change="handleFileChange">
+            <input ref="fileInput" type="file" accept="application/pdf,.pdf" class="hidden" @change="handleFileChange">
 
             <p v-if="errorMessage" class="text-sm text-red-600 text-center">{{ errorMessage }}</p>
 
@@ -44,7 +44,7 @@
                 :disabled="!selectedFile"
                 @click="uploadFile"
             >
-                开始处理
+                开始翻译
             </button>
         </section>
 
@@ -63,8 +63,8 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
             </svg>
-            <p class="text-gray-700 font-medium">正在处理文件...</p>
-            <p class="text-sm text-gray-400 mt-1">请耐心等待，处理可能需要几分钟</p>
+            <p class="text-gray-700 font-medium">正在翻译 PDF...</p>
+            <p class="text-sm text-gray-400 mt-1">请耐心等待，翻译可能需要几分钟</p>
         </section>
 
         <section v-if="phase === 'done'" class="mt-6 text-center">
@@ -73,7 +73,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                 </svg>
             </div>
-            <p class="text-gray-700 font-medium mb-4">处理完成！</p>
+            <p class="text-gray-700 font-medium mb-4">翻译完成！</p>
             <a :href="downloadUrl" class="inline-block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">下载结果</a>
             <button type="button" class="block mx-auto mt-3 text-sm text-gray-500 hover:text-gray-700" @click="reset">处理新文件</button>
         </section>
@@ -110,6 +110,13 @@
 
                 function setSelectedFile(file) {
                     if (!file) return;
+                    if (!file.name.toLowerCase().endsWith('.pdf')) {
+                        selectedFile.value = null;
+                        errorMessage.value = '仅支持上传 PDF 文件';
+                        progress.value = 0;
+                        phase.value = 'idle';
+                        return;
+                    }
                     selectedFile.value = file;
                     errorMessage.value = '';
                     progress.value = 0;

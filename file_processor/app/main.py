@@ -2,7 +2,7 @@ import asyncio
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 
 from .tasks import process_file
@@ -26,8 +26,11 @@ async def index():
 
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
+    ext = Path(file.filename or "").suffix.lower()
+    if ext != ".pdf":
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
     task_id = str(uuid.uuid4())
-    ext = Path(file.filename).suffix
     saved_filename = f"{task_id}{ext}"
     input_path = UPLOAD_DIR / saved_filename
 
@@ -35,7 +38,7 @@ async def upload_file(file: UploadFile = File(...)):
         while chunk := await file.read(1024 * 1024):
             f.write(chunk)
 
-    result_filename = f"{task_id}_result{ext}"
+    result_filename = f"{task_id}_translated.pdf"
     output_path = RESULT_DIR / result_filename
 
     tasks_store[task_id] = {
@@ -77,5 +80,5 @@ async def download_file(task_id: str):
     original_name = task.get("original_filename", "result")
     stem = Path(original_name).stem
     ext = Path(original_name).suffix
-    download_name = f"{stem}_processed{ext}"
+    download_name = f"{stem}_translated.pdf"
     return FileResponse(path=str(result_path), filename=download_name)

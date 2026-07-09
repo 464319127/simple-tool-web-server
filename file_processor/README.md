@@ -33,16 +33,23 @@ docker pull docker.1ms.run/library/python:3.11-slim
 docker pull docker.1ms.run/library/nginx:alpine-perl
 ```
 
-### 2. 自定义处理逻辑（可选）
+### 2. 配置 DUCC 翻译参数
 
-编辑 `app/tasks.py` 中的 `process_file` 函数，替换为你的实际业务逻辑：
+服务会在 app 镜像内安装 PDFMathTranslate/pdf2zh。运行前需要提供 DUCC 密钥：
 
-```python
-async def process_file(input_path: str, output_path: str):
-    # 在此实现你的文件处理逻辑
-    # input_path: 用户上传的文件路径
-    # output_path: 处理结果的输出路径
-    ...
+```bash
+export DUCC_API_KEY="sk-xxxxxxx"
+export DUCC_BASE_URL="https://oneapi-comate.baidu-int.com/v1/messages"
+export DUCC_MODEL="gpt-5.5"
+```
+
+可选配置：
+
+```bash
+export PDF2ZH_LANG_IN="en"
+export PDF2ZH_LANG_OUT="zh"
+export PDF2ZH_THREADS="10"
+export PDF2ZH_TIMEOUT_SECONDS="3600"
 ```
 
 ### 3. 构建并启动服务
