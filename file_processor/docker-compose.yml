@@ -2,10 +2,6 @@ services:
   app:
     build:
       context: .
-      args:
-        HTTP_PROXY: ${HTTP_PROXY:-http://agent.baidu.com:8891}
-        HTTPS_PROXY: ${HTTPS_PROXY:-http://agent.baidu.com:8891}
-        NO_PROXY: ${NO_PROXY:-pip.baidu.com,oneapi-comate.baidu-int.com}
     environment:
       DUCC_BASE_URL: ${DUCC_BASE_URL:-https://oneapi-comate.baidu-int.com/v1/messages}
       DUCC_API_KEY: ${DUCC_API_KEY:?DUCC_API_KEY is required}
