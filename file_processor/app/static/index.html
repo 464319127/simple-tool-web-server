@@ -145,8 +145,8 @@
                 const progressLabel = computed(() => `${progress.value}%`);
                 const logText = computed(() => logTail.value.join('\n'));
                 const debugCommands = computed(() => taskId.value ? [
-                    `curl -s http://127.0.0.1:8999/api/status/${taskId.value}`,
-                    `curl -s http://127.0.0.1:8999/api/logs/${taskId.value}`,
+                    `curl -s ${window.location.origin}/api/status/${taskId.value}`,
+                    `curl -s ${window.location.origin}/api/logs/${taskId.value}`,
                     `docker exec file_processor-app-1 sh -lc 'tail -f /data/results/${taskId.value}.log'`,
                 ].join('\n') : '');
                 const monoDownloadUrl = computed(() => taskId.value ? `/api/download/${taskId.value}/mono` : '#');
