@@ -112,6 +112,9 @@ docker compose down
 
 # 重新构建（修改代码后）
 docker compose up --build -d
+
+# 运行单元测试
+python3 -m pytest file_processor/tests
 ```
 
 ## 注意事项

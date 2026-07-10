@@ -1,4 +1,5 @@
 import asyncio
+import os
 import uuid
 from pathlib import Path
 
@@ -9,10 +10,19 @@ from .tasks import process_file
 
 app = FastAPI()
 
-UPLOAD_DIR = Path("/data/uploads")
-RESULT_DIR = Path("/data/results")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-RESULT_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "/data/uploads"))
+RESULT_DIR = Path(os.getenv("RESULT_DIR", "/data/results"))
+
+
+def ensure_data_dirs():
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    RESULT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+try:
+    ensure_data_dirs()
+except OSError:
+    pass
 
 # 任务状态存储: task_id -> {"status": str, "original_filename": str, "result_filenames": dict}
 tasks_store: dict = {}
@@ -38,6 +48,8 @@ async def upload_file(
     ext = Path(file.filename or "").suffix.lower()
     if ext != ".pdf":
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+    ensure_data_dirs()
 
     task_id = str(uuid.uuid4())
     saved_filename = f"{task_id}{ext}"
