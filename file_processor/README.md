@@ -58,6 +58,18 @@ cd file_processor
 docker compose up --build -d
 ```
 
+默认对外端口为 `8999`。部署时可通过 `WEB_PORT` 指定其他端口，例如：
+
+```bash
+WEB_PORT=8080 docker compose up --build -d
+```
+
+也可以在 `file_processor` 目录创建 `.env` 文件持久化配置：
+
+```dotenv
+WEB_PORT=8080
+```
+
 ### 4. 访问服务
 
 浏览器打开：
@@ -70,7 +82,7 @@ http://<服务器IP>:8999
 
 | 配置项 | 位置 | 默认值 | 说明 |
 |--------|------|--------|------|
-| 对外端口 | docker-compose.yml | 8999 | Nginx 监听端口 |
+| `WEB_PORT` | 部署环境变量或 `.env` | 8999 | 宿主机对外端口；容器内 Nginx 仍监听 8999 |
 | 文件大小限制 | nginx/nginx.conf | 500MB | `client_max_body_size` |
 | 代理超时 | nginx/nginx.conf | 600s | 长任务处理时间上限 |
 | pip 源 | Dockerfile | pip.baidu.com | 百度内网 pip 源 |
@@ -95,8 +107,10 @@ docker save -o file-processor-images.tar \
 
 ```bash
 docker load -i file-processor-images.tar
-docker compose -f docker-compose.offline.yml up -d
+WEB_PORT=8080 docker compose -f docker-compose.offline.yml up -d
 ```
+
+不设置 `WEB_PORT` 时，离线部署同样使用默认端口 `8999`。
 
 ## 常用命令
 
@@ -121,5 +135,4 @@ python3 -m pytest file_processor/tests
 
 - 任务状态存储在内存中，重启服务后会丢失未完成的任务
 - 上传文件和结果文件存储在 Docker volume 中，`docker compose down` 不会删除数据，`docker compose down -v` 会清除
-- 如需修改端口，同时更改 `docker-compose.yml` 的 ports 和 `nginx/nginx.conf` 的 listen
-
+- 对外端口通过 `WEB_PORT` 配置，无需修改 Compose 或 Nginx 配置文件
